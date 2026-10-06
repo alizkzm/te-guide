@@ -173,16 +173,3 @@ inb                TRIVIAL  complete    y             0.6543    0.5979    0.5680
 
 The CSV files additionally report the Spearman correlation, the weighted Pearson correlation,
 `rel@3`, `recall@1` and the top-1 regret.
-
-## Testing without models or data
-
-`selftest` runs every score on synthetic data, and `mock` writes synthetic probes so that the
-whole pipeline can be exercised without downloading anything:
-
-```bash
-python run.py selftest --fast
-GUIDE_ROOT=runs_mock python run.py mock -m cnn -d cifar10,dtd
-GUIDE_ROOT=runs_mock python run.py score -m cnn -d cifar10,dtd
-GUIDE_ROOT=runs_mock python run.py post -d cifar10,dtd
-GUIDE_ROOT=runs_mock python run.py evaluate --gt sfda_cnn -d cifar10,dtd
-```
