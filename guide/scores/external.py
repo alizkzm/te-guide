@@ -92,51 +92,6 @@ class PGE(SingleElementScore):
         raise ScoreNotApplicable(self.note)
 
 
-def emms_score(X: np.ndarray, label_embeddings: list[np.ndarray], n_iters: int = 50) -> float:
-    """Weighted linear-square regression from features onto a mixture of foundation-model label embeddings (alternating minimisation)."""
-    k = len(label_embeddings)
-    lam = np.ones(k) / k
-    W = None
-    for _ in range(n_iters):
-        Y = sum(l * e for l, e in zip(lam, label_embeddings))
-        W = np.linalg.lstsq(X, Y, rcond=None)[0]
-        pred = X @ W
-        res = np.array([np.linalg.norm(pred - e) ** 2 for e in label_embeddings])
-        lam = 1.0 / (res + 1e-8)
-        lam /= lam.sum()
-    Y = sum(l * e for l, e in zip(lam, label_embeddings))
-    return float(-np.mean((X @ W - Y) ** 2))
-
-
-@register
-class EMMS(SingleElementScore):
-    name = "emms"
-    paper = "Foundation Model is Efficient Multimodal Multitask Model Selector (NeurIPS 2023)"
-    elements = ("emms",)
-    requires = ("features", "labels")
-    status = "partial"
-    hparams = {"label_embedding_dir": None}
-    note = (
-        "Needs label embeddings produced by foundation models (CLIP / GPT-2 / "
-        "BERT text encoders) for the target label set. Compute them once with "
-        "OpenGVLab/Multitask-Model-Selector, drop the .npy files in "
-        "`label_embedding_dir`, and `emms_score` will run. GUIDE does not ship "
-        "those encoders."
-    )
-
-    def value(self, probe: ProbeData, **hp) -> float:
-        from pathlib import Path
-
-        d = hp.get("label_embedding_dir")
-        if not d:
-            raise ScoreNotApplicable(self.note)
-        paths = sorted(Path(d).glob(f"{probe.dataset}_*.npy"))
-        if not paths:
-            raise ScoreNotApplicable(f"no label embeddings for {probe.dataset} in {d}")
-        embeddings = [np.load(p).astype(np.float64) for p in paths]
-        return emms_score(np.asarray(probe.features, dtype=np.float64), embeddings)
-
-
 @register
 class ModelSpider(TEScore):
     name = "model_spider"
