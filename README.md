@@ -8,14 +8,6 @@ fine-tuning results.
 
 The code lives in the `guide` package and is driven by a single command-line entry point, `run.py`.
 
-## Installation
-
-```bash
-pip install -r requirements.txt
-```
-
-The requirements are NumPy, SciPy, scikit-learn, PyTorch, torchvision, timm, HuggingFace
-`datasets` and pandas.
 
 ## The pipeline
 
