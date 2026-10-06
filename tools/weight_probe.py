@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-"""Data-free weight-spectrum probe."""
+"""Data-free weight-spectrum statistics of each model, written for the w_* scores."""
+
 from __future__ import annotations
 
 import argparse
@@ -26,12 +27,13 @@ def layer_matrices(model: nn.Module, min_dim: int):
                 yield W
 
 
-def powerlaw_alpha(eig: np.ndarray):
+def powerlaw_alpha(eig: np.ndarray) -> float:
     """Clauset MLE power-law exponent of the eigenvalue tail, xmin by min-KS."""
     e = np.sort(eig[eig > 0])
     if e.size < 8:
         return np.nan
-    lo, hi = int(0.10 * e.size), max(int(0.10 * e.size) + 1, int(0.90 * e.size))
+    lo = int(0.10 * e.size)
+    hi = max(lo + 1, int(0.90 * e.size))
     cand = np.unique(e[lo:hi])
     if cand.size > 60:
         cand = cand[np.linspace(0, cand.size - 1, 60).astype(int)]
@@ -65,6 +67,7 @@ def mp_softrank(eig: np.ndarray, shape) -> float:
 
 
 def analyse(model: nn.Module, min_dim: int) -> dict:
+    """Per-layer spectral statistics, averaged over the layers of the model."""
     per = {k: [] for k in ("alpha", "alpha_weighted", "log_spectral_norm",
                            "log_frobenius", "stable_rank", "effective_rank",
                            "mp_softrank")}
@@ -75,7 +78,6 @@ def analyse(model: nn.Module, min_dim: int) -> dict:
         if s.size < 2:
             continue
         eig = s ** 2
-        lam_max = float(eig[0]) if eig[0] >= eig[-1] else float(eig.max())
         lam_max = float(eig.max())
         p = s / s.sum()
         alpha = powerlaw_alpha(eig)
@@ -97,10 +99,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("-m", "--models", default=config.DEFAULT_HUB,
-                    help="hub name (sfda_cnn, cnn, all, ...) or comma list of models")
+                    help="hub name (sfda_cnn, cnn, all, ...) or comma-separated models")
     ap.add_argument("--min-dim", type=int, default=10,
                     help="skip weight matrices whose smaller dimension is below this")
-    ap.add_argument("--out", default=None, help="output dir (default $GUIDE_ROOT/weightstats)")
+    ap.add_argument("--out", default=None, help="output folder (default $GUIDE_ROOT/weightstats)")
     ap.add_argument("--overwrite", action="store_true")
     args = ap.parse_args()
 
