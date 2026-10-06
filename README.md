@@ -8,14 +8,6 @@ fine-tuning results.
 
 The code lives in the `guide` package and is driven by a single command-line entry point, `run.py`.
 
-## Installation
-
-```bash
-pip install -r requirements.txt
-```
-
-The requirements are NumPy, SciPy, scikit-learn, PyTorch, torchvision, timm, HuggingFace
-`datasets` and pandas.
 
 ## The pipeline
 
@@ -189,13 +181,11 @@ The CSV files additionally report the Spearman correlation, the weighted Pearson
 The scripts in `tools/` build on the pipeline above: they prepare inputs, run the experiments, and
 turn the results into tables and figures. Every script lists its options with `--help`.
 
-### Before scoring
+### Weight-based Scores
 
 | Script | What it does |
 |---|---|
 | `weight_probe.py` | Computes spectral statistics of each model's weight matrices, without any data. The `w_*` scores read these files, so run it once per hub before `score`. |
-| `import_probe.py` | Turns features, labels and logits you already have (`.npy` files) into a probe, so models outside the hubs can be scored. |
-| `check_probes.py` | Finds truncated or unreadable files in the probe cache; `--delete` removes them. |
 
 ```bash
 python tools/weight_probe.py -m cnn
@@ -206,41 +196,9 @@ python tools/weight_probe.py -m cnn
 | Script | What it does |
 |---|---|
 | `sweep_spc.py` | Runs `score`, `post` and `evaluate` once per samples-per-class budget, each in its own root but reading one shared probe cache, and collects the results into pivot tables. |
-| `ablation.py` | Leave-N-out robustness: how much each score's correlation changes when models or target datasets are dropped. |
-| `ablation_complexity.py` | Evaluates the scores on sub-hubs of models with similar size or the same architecture family. |
-| `ablation_on_itm.py` | Evaluates the scores on fixed sub-hubs of the 20-model mixed hub. |
-| `metric_corr.py` | Correlation matrix between the scores themselves, per target or pooled, with optional clustering and heatmap. |
-| `best_combo.py` | Searches for small sets of scores whose combination ranks the models best. |
-| `diverse_combo.py` | The same search restricted to scores that are weakly correlated with each other. |
 
 ```bash
 python tools/sweep_spc.py -m cnn --gt sfda_cnn --spc 10,50,all --weightstats runs/weightstats
 ```
 
-### Tables and figures
 
-| Script | What it does |
-|---|---|
-| `table1.py` | Weighted Kendall correlation and run time of every score for one hub, over all of its targets. |
-| `plot_results.py` | Plots each score's correlation against the sample budget, from the `sweep_spc.py` roots. |
-| `run_hub.py` | Runs `table1.py`, `plot_results.py` and the ablations for one hub in a single call. |
-| `final.py` | Collects the per-budget results and the ablations of all four hubs into CSV files, reading only results already on disk. |
-
-`table1.py`, `run_hub.py` and `final.py` name the hubs `sfda-cnn`, `sfda-ssl`, `sfda-vit` and `itm`:
-
-```bash
-python tools/run_hub.py --hub sfda-cnn
-```
-
-## Testing without models or data
-
-`selftest` runs every score on synthetic data, and `mock` writes synthetic probes so that the
-whole pipeline can be exercised without downloading anything:
-
-```bash
-python run.py selftest --fast
-GUIDE_ROOT=runs_mock python run.py mock -m cnn -d cifar10,dtd
-GUIDE_ROOT=runs_mock python run.py score -m cnn -d cifar10,dtd
-GUIDE_ROOT=runs_mock python run.py post -d cifar10,dtd
-GUIDE_ROOT=runs_mock python run.py evaluate --gt sfda_cnn -d cifar10,dtd
-```
