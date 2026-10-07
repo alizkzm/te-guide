@@ -213,7 +213,7 @@ def _ssl_vit_search_dirs() -> list:
 
 
 def _ssl_vit_checkpoint_path(name: str) -> Optional[Path]:
-    """Locate a checkpoint for `name`, tolerant of extension (.pth / .pth.tar) and hyphen/underscore style (e.g."""
+    """Locate a checkpoint for `name`, tolerant of extension (.pth / .pth.tar) and hyphen/underscore style."""
     key = name.replace("-", "").replace("_", "").lower()
     for d in _ssl_vit_search_dirs():
         for ext in (".pth", ".pth.tar"):
