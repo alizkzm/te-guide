@@ -201,12 +201,6 @@ def cmd_score(args):
                                                    "complete", "incomplete"):
         print(f"skipping disabled scores: {', '.join(sorted(skipped))} "
               f"(config.DISABLED_SCORES)")
-    if args.variance and args.richardson:
-        raise SystemExit("--variance and --richardson are mutually exclusive")
-    plugin = "variance" if args.variance else "richardson" if args.richardson else None
-    if plugin:
-        print(f"resampling plugin: {plugin} (only feature+label single-value "
-              f"scores are affected; others run normally)")
     summary = run_grid(
         _models(args.models),
         _datasets(args.datasets),
@@ -217,8 +211,6 @@ def cmd_score(args):
         seed=args.seed,
         overwrite=args.overwrite,
         hparams=_hparams(args.set),
-        variance=args.variance,
-        richardson=args.richardson,
     )
     print(f"\n{summary}")
 
@@ -313,7 +305,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--batch-size", type=int, default=config.BATCH_SIZE)
     sp.add_argument("--workers", type=int, default=0)
     sp.add_argument("--max-samples", type=int, default=None,
-                    help="cap images per dataset (useful for a smoke run)")
+                    help="cap images per dataset")
     sp.add_argument("--resize", default=config.RESIZE_MODE, choices=["squash", "center_crop"],
                     help="center_crop = Resize(S,bicubic)+CenterCrop(S), the SFDA/ETran/NCTI "
                          "protocol (default); squash = Resize((S,S))")
@@ -330,14 +322,6 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("--samples-per-class", default=str(config.SAMPLES_PER_CLASS))
     sp.add_argument("--seed", type=int, default=config.SEED)
     sp.add_argument("--overwrite", action="store_true")
-    sp.add_argument("--variance", action="store_true",
-                    help="resampling plugin: bag every feature+label single-value "
-                         "score over stratified subsamples (see guide/scores/resample.py). "
-                         "Records file under the plain score name, so isolate the run "
-                         "(GUIDE_ROOT=... or --overwrite) to avoid clobbering plain records.")
-    sp.add_argument("--richardson", action="store_true",
-                    help="resampling plugin: extrapolate every such score to n->inf "
-                         "(2*A(N)-A(N/2)); same isolation caveat as --variance.")
     sp.set_defaults(func=cmd_score)
 
     sp = sub.add_parser("post", help="combine elements + normalise over the hub")

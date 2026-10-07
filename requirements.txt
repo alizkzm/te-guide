@@ -1,0 +1,12 @@
+numpy>=1.24
+scipy>=1.10
+scikit-learn>=1.3
+torch>=2.0
+torchvision>=0.15
+timm>=0.9
+datasets>=2.14
+
+# optional
+# POT                   exact optimal transport for OTCE (a Sinkhorn fallback is used without it)
+# efficientnet_pytorch  EfficientNet-B0 of the mixed hub
+# fvcore                FLOPs for the `flops` baseline (or thop)
