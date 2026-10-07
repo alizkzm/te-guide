@@ -171,7 +171,6 @@ class ProbeData:
                 f"{type(exc).__name__}: {exc}\n"
                 f"    {npz_path} ({size:.1f} MB) - most likely a job killed or a "
                 f"disk filled mid-write. Delete it and re-extract:\n"
-                f"    python tools/check_probes.py --delete\n"
                 f"    python run.py extract -m {model_name} -d {dataset}"
             ) from exc
 
