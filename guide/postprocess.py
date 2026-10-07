@@ -128,43 +128,6 @@ DEFAULT_RECIPES: dict[str, Recipe] = {
         weights={"task_difference": -1.0},
         note="auxiliary-free OTCE (a.k.a. OT-based NCE); both terms are lower-is-better",
     ),
-    "spectral_te": Recipe(
-        "spectral_te",
-        weights={"sp_sep": 1.0, "sp_silhouette": 1.0, "sp_ari": 1.0},
-        element_norm="minmax",
-        note="spectral-embedding separability.  F = sp_sep + sp_silhouette + "
-             "sp_ari (equal min-max weight), chosen by leave-one-task-out forward "
-             "selection: the strong LDA-in-embedding term, the orthogonal "
-             "silhouette, and one clustering-agreement metric.  nmi/acc are ~0.97 "
-             "redundant with ari and ncut is weak, so they are dropped.  Reaches "
-             "tau_w 0.63 on sup-CNN (best of the graph/spectral scores; vs 0.57 "
-             "for sp_sep alone).  A fitted 6-weight blend overfits (CV 0.54).",
-    ),
-    "graph_te": Recipe(
-        "graph_te",
-        weights={"sep": 1.0, "rank_alpha": -0.3},
-        element_norm="minmax",
-        note="two-graph metric.  Linear fallback F = sep + 0.3 rank (min-max); the "
-             "headline combiner is the SELF-GATED W blend in the graph_te eval "
-             "script (W high when the target is separable for the pool, low at the "
-             "floor), which the linear recipe cannot express.  Fit the rank weight "
-             "/ gate shape by leave-one-task-out, never per hub.",
-    ),
-    "graph_spectral_te": Recipe(
-        "graph_spectral_te",
-        weights={"gs_nassoc": 1.0, "gs_modularity": 1.0, "gs_labelenergy": 0.5,
-                 "gs_leak": -0.5, "gs_cross": -0.5},
-        element_norm="minmax",
-        note="exact K x K class-graph scalars.  F blends the block-diagonality "
-             "terms -- normalised within-class association (gs_nassoc = 1 - "
-             "Ncut/K) and Newman modularity (gs_modularity, chance-corrected) -- "
-             "and the low-frequency label energy (gs_labelenergy) POSITIVELY "
-             "against the leakage terms gs_leak and hardest-pair gs_cross "
-             "NEGATIVELY (both lower-is-better under min-max).  gs_fiedler is "
-             "dropped by default (noisy at small K, correlated with gs_leak); this "
-             "is a principled prior -- fit the weights per hub as for the other "
-             "graph scores.",
-    ),
 }
 
 
@@ -176,47 +139,6 @@ def default_recipe(score_name: str) -> Recipe:
     elements = getattr(cls, "elements", ()) if cls else ()
     element = elements[0] if elements else score_name
     return Recipe(score_name, weights={element: 1.0})
-
-
-def _bagged_rank_recipe(name: str, n_slots: int = 32) -> Recipe:
-    """Rank each draw across the hub (1 = best), then AVERAGE those ranks."""
-    return Recipe(
-        name,
-        weights={f"{name}_d{i:02d}": 1.0 for i in range(n_slots)},
-        element_norm="rank1",
-        average=True,
-        final_norm="neg",
-        note="per-draw ranks (1 = best) averaged across draws; negated so that "
-             "higher is better -- |score| is the average rank",
-    )
-
-
-def _primary_element(score_name: str) -> str:
-    """The element a single-value score reports under (its own name by default)."""
-    _ensure_loaded()
-    cls = REGISTRY.get(score_name)
-    elements = getattr(cls, "elements", ()) if cls else ()
-    return elements[0] if elements else score_name
-
-
-def _is_plain_default(recipe: Recipe, primary: str) -> bool:
-    """True when `recipe` is the auto-filled single-element default, not a hand-written override we must respect."""
-    return (recipe.element_norm in ("none", "")
-            and recipe.final_norm in ("none", "")
-            and recipe.derive is None
-            and set(recipe.weights) <= {primary, recipe.score_name})
-
-
-def resolve_recipe(score_name: str, raw: dict[str, dict[str, float]],
-                   recipe: Recipe | None = None) -> Recipe:
-    """Pick the recipe for a run, upgrading to avg-rank when it was resampled."""
-    primary = _primary_element(score_name)
-    draws_present = any(f"{primary}_d00" in raw.get(m, {}) for m in raw)
-    if not draws_present:
-        return recipe or default_recipe(score_name)
-    if recipe is None or _is_plain_default(recipe, primary):
-        return _bagged_rank_recipe(primary)
-    return recipe
 
 
 def load_recipes(path: str | Path | None) -> dict[str, Recipe]:
@@ -341,7 +263,7 @@ def postprocess_one(
     write: bool = True,
 ) -> dict:
     raw, info = collect_raw(target_data, score_name, source_data, models, score_root)
-    recipe = resolve_recipe(score_name, raw, recipe)
+    recipe = recipe or default_recipe(score_name)
     values, diag = combine_hub(raw, recipe)
 
     payload = {

@@ -21,17 +21,10 @@ def run_one(
     samples_per_class: str | int = config.SAMPLES_PER_CLASS,
     seed: int = config.SEED,
     hparams: dict | None = None,
-    *,
-    variance: bool = False,
-    richardson: bool = False,
 ) -> ScoreRecord:
     """Compute one score on one probe and return the (unsaved) record."""
     score = get_score(score_name)
     hparams = {**(hparams or {})}
-    if variance:
-        hparams["variance"] = True
-    if richardson:
-        hparams["richardson"] = True
 
     view = probe
     idx = stratified_indices(probe.labels, samples_per_class, seed=seed)
@@ -85,8 +78,6 @@ def run_grid(
     seed: int = config.SEED,
     overwrite: bool = False,
     hparams: dict[str, dict] | None = None,
-    variance: bool = False,
-    richardson: bool = False,
     verbose: bool = True,
 ) -> dict:
     """Full grid."""
@@ -151,8 +142,6 @@ def run_grid(
                     samples_per_class=samples_per_class,
                     seed=seed,
                     hparams=hparams.get(s),
-                    variance=variance,
-                    richardson=richardson,
                 )
                 save_record(rec)
                 summary[rec.status] = summary.get(rec.status, 0) + 1
