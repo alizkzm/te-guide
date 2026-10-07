@@ -11,7 +11,6 @@ from guide.scores import (
     optimal_transport,
     perturbation,
     separability,
-    spectral,
     trivial,
     uncertainty,
     weights,
