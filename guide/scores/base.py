@@ -20,7 +20,7 @@ REQUIREMENTS = {
 
 
 class ScoreNotApplicable(RuntimeError):
-    """The score cannot run on this probe (e.g."""
+    """The score cannot run on this probe."""
 
 
 @dataclass
@@ -40,19 +40,6 @@ class TEScore:
     status: str = "ready"
     note: str = ""
     hparams: dict = {}
-    _resamplable: bool | None = None
-    resample_seed: int = 0
-
-    @property
-    def resamplable(self) -> bool:
-        """Whether the `variance` / `richardson` run flags apply to this score."""
-        if self._resamplable is not None:
-            return bool(self._resamplable)
-        return len(self.elements) <= 1 and set(self.requires) <= {"features", "labels"}
-
-    @property
-    def _primary_element(self) -> str:
-        return self.elements[0] if self.elements else self.name
 
     @property
     def kind(self) -> str:
@@ -89,21 +76,12 @@ class TEScore:
             probe.attach_source_probe(required=True)
 
     def run(self, probe: ProbeData, **overrides) -> ScoreOutput:
-        """`check` -> `compute` (or the resampling plugin) -> timed elements."""
+        """`check` -> `compute` -> timed elements."""
         self.check(probe)
         hp = self.resolved_hparams(**overrides)
-        variance = bool(hp.pop("variance", False))
-        richardson = bool(hp.pop("richardson", False))
-        n_iter = hp.pop("resample_iter", None)
-        seed = int(hp.pop("resample_seed", self.resample_seed))
 
         t0 = time.perf_counter()
-        mode = None
-        if (variance or richardson) and self.resamplable:
-            mode = "richardson" if richardson else "variance"
-            raw = self._resample(probe, mode, hp, n_iter, seed)
-        else:
-            raw = self.compute(probe, **hp)
+        raw = self.compute(probe, **hp)
         dt = time.perf_counter() - t0
 
         elements = {}
@@ -113,27 +91,7 @@ class TEScore:
             except (TypeError, ValueError):
                 fv = float("nan")
             elements[k] = fv
-        if mode is not None:
-            hp = {**hp, "resample": mode, "resample_seed": seed}
         return ScoreOutput(elements=elements, run_time=dt, hyperparameters=hp)
-
-    def _resample(self, probe: ProbeData, mode: str, hp: dict,
-                  n_iter: int | None, seed: int) -> dict[str, float]:
-        """Re-run this score on stratified resamples via the plugin engine."""
-        from guide.scores.resample import (MODE_DEFAULTS, draw_elements,
-                                            resample_score_draws)
-
-        default_iter, frac = MODE_DEFAULTS[mode]
-        prim = self._primary_element
-
-        def scalar_fn(pr: ProbeData) -> float:
-            return float(self.compute(pr, **hp)[prim])
-
-        vals = resample_score_draws(
-            scalar_fn, probe, mode,
-            n_iter=int(n_iter or default_iter), seed=seed, frac=frac,
-        )
-        return draw_elements(prim, vals)
 
 
 class SingleElementScore(TEScore):
