@@ -91,29 +91,3 @@ class PGE(SingleElementScore):
     def value(self, probe: ProbeData, **hp) -> float:
         raise ScoreNotApplicable(self.note)
 
-
-@register
-class ModelSpider(TEScore):
-    name = "model_spider"
-    paper = "Model Spider: Learning to Rank Pre-Trained Models Efficiently (NeurIPS 2023)"
-    elements = ("model_spider",)
-    requires = ()
-    status = "partial"
-    hparams = {"model_token_path": None, "task_token_path": None}
-    note = (
-        "Model-Spider is *learned*: model and task tokens are trained across a "
-        "meta-training set of (model, task) pairs, then transferability is their "
-        "cosine similarity. GUIDE cannot produce those tokens - train them with "
-        "zhangyikaii/Model-Spider and point `model_token_path` / `task_token_path` "
-        "at the results. Its per-token features are exactly the other scores in "
-        "this package (LEEP/LogME/GBC/NCE/...), which GUIDE does compute."
-    )
-
-    def compute(self, probe: ProbeData, **hp) -> dict[str, float]:
-        mp, tp = hp.get("model_token_path"), hp.get("task_token_path")
-        if not mp or not tp:
-            raise ScoreNotApplicable(self.note)
-        m = np.load(mp).astype(np.float64).ravel()
-        t = np.load(tp).astype(np.float64).ravel()
-        cos = float(m @ t / (np.linalg.norm(m) * np.linalg.norm(t) + 1e-12))
-        return {"model_spider": cos}
